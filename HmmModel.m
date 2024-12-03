@@ -45,7 +45,7 @@ classdef HmmModel < handle
             [max_val, final_state] = max(alpha(:, T));  % Find the most likely final state
             likelihood = max_val;  % The maximum likelihood of the entire observation sequence
 
-            % Optionally, you can backtrack to get the best state sequence if needed:
+            % Optional: backtracking to get the best state sequence if needed:
             % state_sequence = zeros(1, T);
             % state_sequence(T) = final_state;
             % for t = T-1:-1:1
