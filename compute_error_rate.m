@@ -4,9 +4,9 @@ if ~isfolder(dataset_dir)
     error('Invalid dataset directory path');
 end
 
-if ~all(arrayfun(@(x) isa(x, 'HmmModel'), hmm_models))
-    error('All models must be instances of HmmModel class');
-end
+% if ~all(arrayfun(@(x) isa(x, 'HmmModel'), hmm_models))
+%     error('All models must be instances of HmmModel class');
+% end
 
 % Initialize counters
 correctWords = 0;
@@ -19,6 +19,10 @@ audio_files = dir(fullfile(dataset_dir, '*.mp3'));
 for i = 1:length(audio_files)
     % Increment total words counter
     totalWords = totalWords + 1;
+
+    % Add a progress bar
+    progress = round((i / length(audio_files)) * 100);
+    fprintf('Processing file %d/%d (%.2f%%) - %s\n', i, length(audio_files), progress, audio_files(i).name);
 
     % Get file path and actual word
     file_path = fullfile(audio_files(i).folder, audio_files(i).name);
@@ -33,11 +37,12 @@ for i = 1:length(audio_files)
 
     % Test against each HMM model
     for j = 1:length(hmm_models)
-        likelihood = hmm_models(j).estimateLikelihood(mfcc_features);
+        current_hmm = hmm_models{j};
+        likelihood = current_hmm.estimateLikelihood(mfcc_features);
 
         if likelihood > maxLikelihood
             maxLikelihood = likelihood;
-            wordWithMaxLikelihood = hmm_models(j).word;
+            wordWithMaxLikelihood = current_hmm.word;
         end
     end
 
@@ -49,10 +54,4 @@ end
 
 % Calculate and return error rate (3 decimal places)
 error_rate = round((1 - correctWords/totalWords) * 1000) / 1000;
-end
-
-function word = extract_word_from_filename(filename)
-% Extract word from filename format: sp01a_w03_head.mp3
-parts = split(filename, '_');
-word = extractBefore(parts{3}, '.mp3');
 end
