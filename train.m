@@ -9,7 +9,7 @@ extract_mfcc_for_dataset(dataset_dir, mfcc_features_file);
 initialize_hmms(mfcc_features_file, output_hmm_file);
 
 % Step 3: Train the recognizer
-train_recognizer(output_hmm_file, mfcc_features_file, 2, dataset_dir);
+train_recognizer(output_hmm_file, mfcc_features_file, 15, dataset_dir);
 
 function train_recognizer(hmm_file_path, mfcc_features_file, num_epochs, dataset_dir)
 % Load the MFCC features
@@ -49,11 +49,11 @@ end
 save('trained_hmms.mat', 'hmms', 'words', 'error_rates');
 
 % Plot error rates
-% figure;
-% plot(1:num_epochs, error_rates * 100);
-% xlabel('Epoch');
-% ylabel('Error Rate (%)');
-% title('Recognition Error Rate vs Training Epoch');
-% grid on;
-% savefig('error_rates.fig');
+figure;
+plot(1:num_epochs, error_rates * 100);
+xlabel('Epoch');
+ylabel('Error Rate (%)');
+title('Recognition Error Rate vs Training Epoch');
+grid on;
+savefig('error_rates.fig');
 end
