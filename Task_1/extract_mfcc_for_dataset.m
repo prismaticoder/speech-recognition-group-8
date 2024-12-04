@@ -13,6 +13,8 @@ function extract_mfcc_for_dataset(dataset_dir, output_file)
 
     % Preallocate storage
     all_mfcc_features = cell(num_files, 1); % Store MFCCs for each file
+    % Initialize structure to store all MFCCs by word
+    segmented_mfcc_features = struct();
     file_names = cell(num_files, 1); % Store corresponding file names
 
     % Process each file
@@ -22,7 +24,18 @@ function extract_mfcc_for_dataset(dataset_dir, output_file)
 
         % Extract MFCCs
         try
+            % Extract word from filename (assuming format like "word_*.mp3")
+            word = extract_word_from_filename(audio_files(i).name);
+
             mfcc_features = extract_mfcc(file_path); % Call the helper function
+
+            % Initialize field for this word if it doesn't exist% Initialize field for this word if it doesn't exist
+            if ~isfield(segmented_mfcc_features, word)
+                segmented_mfcc_features.(word) = [];
+            end
+
+            % Concatenate MFCC features for this word
+            segmented_mfcc_features.(word) = [segmented_mfcc_features.(word); mfcc_features];
             all_mfcc_features{i} = mfcc_features; % Store the MFCC features
             file_names{i} = audio_files(i).name; % Store file name
         catch ME
@@ -32,7 +45,7 @@ function extract_mfcc_for_dataset(dataset_dir, output_file)
     end
 
     % Save results
-    save(output_file, 'all_mfcc_features', 'file_names');
+    save(output_file, 'all_mfcc_features', 'file_names', 'segmented_mfcc_features');
     fprintf('All files have been processed and the results are saved to %s.\n', output_file);
 end
 
@@ -108,6 +121,12 @@ function mel_filterbank = mel_filterbank_matrix(num_filters, fft_size, fs)
         mel_filterbank(i, bin(i):bin(i+1)) = linspace(0, 1, bin(i+1) - bin(i) + 1);
         mel_filterbank(i, bin(i+1):bin(i+2)) = linspace(1, 0, bin(i+2) - bin(i+1) + 1);
     end
+end
+
+function word = extract_word_from_filename(filename)
+    % Extract word from filename format: sp01a_w03_head.mp3
+    parts = split(filename, '_');
+    word = extractBefore(parts{3}, '.mp3');
 end
 
 % Commands to run: 
