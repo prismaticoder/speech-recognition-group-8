@@ -9,8 +9,8 @@ function initialize_hmms(dev_features_file, output_hmm_file)
     % Parameters for the HMMs
     num_states = 8; % Number of emitting states for each HMM
     num_features = 13; % Number of MFCC features per frame
-    transition_prob = 0.8; % Probability of staying in the same state
-    forward_prob = 0.2; % Probability of moving to the next state
+    % transition_prob = 0.8; % Probability of staying in the same state
+    % forward_prob = 0.2; % Probability of moving to the next state
 
     % Number of unique words in the dataset
     vocab_size = 11; % We know there are 11 words
@@ -28,6 +28,14 @@ function initialize_hmms(dev_features_file, output_hmm_file)
         % Calculate the mean and variance for the features of this word
         word_mean = mean(word_features, 1); % Mean across all frames
         word_variance = max(var(word_features, 0, 1), 1e-4); % Variance with floor for stability
+
+        % Calculate transition probabilities
+        num_utterances = size(word_features, 1);
+        avg_frames_per_state = num_utterances / 8;  % 8 states as specified
+
+        % Calculate self-loop probability using the formula
+        transition_prob = exp(-1 / (avg_frames_per_state - 1));
+        forward_prob = 1 - transition_prob;  % Remaining probability for forward transition
 
         % Create the 9x9 transition matrix
         A_matrix = create_transition_matrix(num_states, transition_prob, forward_prob);
