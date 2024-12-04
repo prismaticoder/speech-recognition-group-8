@@ -260,11 +260,6 @@ classdef HmmModel < handle
 
         % Method to estimate likelihood using Viterbi
         function likelihood = estimateLikelihood(obj, mfcc_features)
-            % Debug prints
-            fprintf('Size of A_matrix: %dx%d\n', size(obj.logA));
-            fprintf('Number of states (N): %d\n', obj.N);
-            fprintf('Size of mfcc_features: %dx%d\n', size(mfcc_features));
-
             T = size(mfcc_features, 1);
             N = obj.N;
 
