@@ -21,8 +21,8 @@ for i = 1:length(audio_files)
     totalWords = totalWords + 1;
 
     % Add a progress bar
-    progress = round((i / length(audio_files)) * 100);
-    fprintf('Processing file %d/%d (%.2f%%) - %s\n', i, length(audio_files), progress, audio_files(i).name);
+    % progress = round((i / length(audio_files)) * 100);
+    % fprintf('Processing file %d/%d (%.2f%%) - %s\n', i, length(audio_files), progress, audio_files(i).name);
 
     % Get file path and actual word
     file_path = fullfile(audio_files(i).folder, audio_files(i).name);
@@ -53,5 +53,5 @@ for i = 1:length(audio_files)
 end
 
 % Calculate and return error rate (3 decimal places)
-error_rate = round((1 - correctWords/totalWords) * 1000) / 1000;
+error_rate = round((1 - (correctWords/totalWords)) * 1000) / 1000;
 end
