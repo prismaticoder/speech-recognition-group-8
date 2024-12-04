@@ -27,10 +27,15 @@ function initialize_hmms(dev_features_file, output_hmm_file)
         word_mean = mean(word_features, 1); % Mean across all frames
         word_variance = var(word_features, 0, 1); % Variance across all frames
 
-        % Set up the HMM parameters for this word
-        hmm.mean_vectors = repmat(word_mean, num_states, 1); % Repeat the mean for all states
-        hmm.variance_vectors = repmat(word_variance, num_states, 1); % Repeat the variance for all states
-        hmm.transition_matrix = create_transition_matrix(num_states, transition_prob, forward_prob); % Create the transition matrix
+        % Create the transition matrix
+        A_matrix = create_transition_matrix(num_states, transition_prob, forward_prob);
+
+        % Set up the HMM parameters using the HmmModel class
+        initial_prob = [1; zeros(num_states + 1, 1)]; % Initial state distribution
+        hmm = HmmModel(sprintf('word_%d', word_idx), A_matrix, ...
+               repmat(word_mean, num_states, 1), ...
+               repmat(sqrt(word_variance), num_states, 1), ...
+               initial_prob);
 
         % Save the HMM into the cell array
         hmms{word_idx} = hmm;
@@ -61,21 +66,23 @@ end
 
 % Function to create the transition matrix for the HMM
 function A = create_transition_matrix(num_states, self_prob, forward_prob)
-    % Input: num_states - number of states in the HMM
-    %        self_prob - probability of staying in the same state
-    %        forward_prob - probability of moving to the next state
-    % Output: A - the transition matrix for the HMM
-    
+    % Create an (N+2)x(N+2) transition matrix (including entry and exit states)
     A = zeros(num_states + 2); % Add 2 for the entry and exit states
+
+    % Loop through each emitting state
     for i = 2:num_states+1
-        A(i, i) = self_prob; % Set self-loop probability
+        A(i, i) = self_prob; % Self-loop probability
         if i < num_states+1
-            A(i, i+1) = forward_prob; % Set forward probability
+            A(i, i+1) = forward_prob; % Forward transition probability
+        else
+            % Last emitting state transitions to the exit state
+            A(i, i+1) = forward_prob; 
         end
     end
-    % Entry and exit states
-    A(1, 2) = 1; % Entry state connects to the first state
-    A(num_states+1, num_states+2) = 1; % Last state connects to the exit state
+
+    % Transitions for entry and exit states
+    A(1, 2) = 1; % Entry to the first state
+    A(num_states+2, num_states+2) = 1; % Exit state self-loop
 end
 
 % Commands to run the function:
