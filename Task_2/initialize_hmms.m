@@ -7,7 +7,7 @@ function initialize_hmms(dev_features_file, output_hmm_file)
     word_labels = extract_word_labels(file_names);
 
     % Parameters for the HMMs
-    num_states = 8; % Number of states for each HMM
+    num_states = 8; % Number of emitting states for each HMM
     num_features = 13; % Number of MFCC features per frame
     transition_prob = 0.8; % Probability of staying in the same state
     forward_prob = 0.2; % Probability of moving to the next state
@@ -23,21 +23,20 @@ function initialize_hmms(dev_features_file, output_hmm_file)
 
         % Extract the word name for the HMM
         word_files = file_names(word_labels == word_idx);
-        word_name = extract_word_from_filename(word_files{1}); % Assume all files for a word have the same name
+        word_name = extract_word_from_filename(word_files{1}); % Get the actual word name
 
         % Calculate the mean and variance for the features of this word
         word_mean = mean(word_features, 1); % Mean across all frames
         word_variance = max(var(word_features, 0, 1), 1e-4); % Variance with floor for stability
 
-        % Create the transition matrix
-        A_matrix_full = create_transition_matrix(num_states, transition_prob, forward_prob);
-        A_matrix = A_matrix_full(2:end-1, 2:end-1); % Extract 8x8 section for the actual states
+        % Create the 9x9 transition matrix
+        A_matrix = create_transition_matrix(num_states, transition_prob, forward_prob);
 
         % Set up the HMM parameters using the HmmModel class
-        initial_prob = [1; zeros(num_states - 1, 1)]; % Initial state distribution
+        initial_prob = [1; zeros(num_states, 1)]; % Initial state distribution (9 states)
         hmm = HmmModel(word_name, A_matrix, ...
-               repmat(word_mean, num_states, 1), ...
-               repmat(sqrt(word_variance), num_states, 1), ...
+               repmat(word_mean, num_states + 1, 1), ... % 9x13 mean matrix
+               repmat(sqrt(word_variance), num_states + 1, 1), ... % 9x13 variance matrix
                initial_prob);
 
         % Save the HMM into the cell array
@@ -72,22 +71,26 @@ function word = extract_word_from_filename(file_name)
     end
 end
 
-% Function to create the transition matrix for the HMM
+% Function to create a 9x9 transition matrix
 function A = create_transition_matrix(num_states, self_prob, forward_prob)
-    A = zeros(num_states + 2); % Add 2 for the entry and exit states
-    for i = 2:num_states+1
+    % Add an entry and exit state to create a 9x9 matrix
+    A = zeros(num_states + 1);
+
+    % Fill in the transition probabilities
+    for i = 1:num_states
         A(i, i) = self_prob; % Self-loop probability
-        if i < num_states+1
-            A(i, i+1) = forward_prob; % Forward transition probability
+        if i < num_states
+            A(i, i + 1) = forward_prob; % Forward transition probability
         else
-            A(i, i+1) = forward_prob; % Last emitting state transitions to exit
+            A(i, i + 1) = forward_prob; % Last emitting state transitions to exit
         end
     end
-    A(1, 2) = 1; % Entry state connects to the first state
-    A(num_states+2, num_states+2) = 1; % Exit state self-loop
+
+    % Ensure the exit state transitions only to itself
+    A(num_states + 1, num_states + 1) = 1; % Exit state self-loop
 end
 
 % Commands to run the function:
-% dev_features_file = 'dev_set_mfcc_features.mat'; % File containing MFCC features
+% dev_features_filce = 'dev_set_mfcc_features.mat'; % File containing MFCC features
 % output_hmm_file = 'prototype_hmms.mat'; % File where the HMMs will be saved
 % initialize_hmms(dev_features_file, output_hmm_file);
