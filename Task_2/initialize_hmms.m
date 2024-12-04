@@ -13,6 +13,7 @@ function initialize_hmms(dev_features_file, output_hmm_file)
     num_features = 13; % Number of MFCC features per frame
     transition_prob = 0.8; % Probability of staying in the same state
     forward_prob = 0.2; % Probability of moving to the next state
+    variance_floor = 1e-4; % Variance floor (to prevent NaN log likelihoods)
 
     % Number of unique words in the dataset
     vocab_size = 11; % We know there are 11 words
@@ -26,6 +27,9 @@ function initialize_hmms(dev_features_file, output_hmm_file)
         % Calculate the mean and variance for the features of this word
         word_mean = mean(word_features, 1); % Mean across all frames
         word_variance = var(word_features, 0, 1); % Variance across all frames
+
+        % Apply variance floor
+        word_variance = max(word_variance, variance_floor);
 
         % Create the transition matrix
         A_matrix = create_transition_matrix(num_states, transition_prob, forward_prob);
