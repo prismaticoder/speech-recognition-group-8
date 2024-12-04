@@ -1,53 +1,84 @@
-% Step 2 (part 1)
+% Step 2 (part 1): Initialize HMMs with word-specific parameters
 function initialize_hmms(dev_features_file, output_hmm_file)
-    % Load MFCC features from the development set
-    load(dev_features_file, 'all_mfcc_features'); % Contains 'all_mfcc_features'
+    % Load the MFCC features and file names from the dataset
+    % 'all_mfcc_features' contains feature matrices for all audio files
+    % 'file_names' is a list of the corresponding file names
+    load(dev_features_file, 'all_mfcc_features', 'file_names'); 
 
-    % Compute global mean and variance
-    all_features = []; 
-    for i = 1:length(all_mfcc_features)
-        all_features = [all_features; all_mfcc_features{i}];
-    end
-    global_mean = mean(all_features, 1); % Mean across all frames and files
-    global_variance = var(all_features, 0, 1); % Variance across all frames and files
+    % Get the word labels for each file by extracting them from the file names
+    word_labels = extract_word_labels(file_names);
 
-    % Define HMM parameters
-    num_states = 8; % Number of states
-    num_features = 13; % Dimensionality of MFCC features
-    transition_prob = 0.8; % Self-loop probability
-    forward_prob = 0.2; % Forward transition probability
+    % Parameters for the HMMs
+    num_states = 8; % Number of states for each HMM
+    num_features = 13; % Number of MFCC features per frame
+    transition_prob = 0.8; % Probability of staying in the same state
+    forward_prob = 0.2; % Probability of moving to the next state
 
-    % Initialize HMMs for each word
-    vocab_size = 11; % Number of words in vocabulary
-    hmms = cell(vocab_size, 1); % To store HMMs for each word
+    % Number of unique words in the dataset
+    vocab_size = 11; % We know there are 11 words
+    hmms = cell(vocab_size, 1); % To store the HMM for each word
 
+    % Loop through all words and initialize an HMM for each one
     for word_idx = 1:vocab_size
-        hmm.mean_vectors = repmat(global_mean, num_states, 1); % Mean vector for each state
-        hmm.variance_vectors = repmat(global_variance, num_states, 1); % Variance vector for each state
-        hmm.transition_matrix = create_transition_matrix(num_states, transition_prob, forward_prob);
+        % Collect all MFCC features for this specific word
+        word_features = vertcat(all_mfcc_features{word_labels == word_idx});
+
+        % Calculate the mean and variance for the features of this word
+        word_mean = mean(word_features, 1); % Mean across all frames
+        word_variance = var(word_features, 0, 1); % Variance across all frames
+
+        % Set up the HMM parameters for this word
+        hmm.mean_vectors = repmat(word_mean, num_states, 1); % Repeat the mean for all states
+        hmm.variance_vectors = repmat(word_variance, num_states, 1); % Repeat the variance for all states
+        hmm.transition_matrix = create_transition_matrix(num_states, transition_prob, forward_prob); % Create the transition matrix
+
+        % Save the HMM into the cell array
         hmms{word_idx} = hmm;
     end
 
-    % Save the initialized HMMs
+    % Save the HMMs to a file so we can use them later
     save(output_hmm_file, 'hmms');
     fprintf('Initialized HMMs saved to %s\n', output_hmm_file);
 end
 
-function A = create_transition_matrix(num_states, self_prob, forward_prob)
-    % Create an (N+2)x(N+2) transition matrix
-    A = zeros(num_states + 2);
-    for i = 2:num_states+1
-        A(i, i) = self_prob; % Self-loop
-        if i < num_states+1
-            A(i, i+1) = forward_prob; % Forward transition
+% Function to extract the word labels from the file names
+function labels = extract_word_labels(file_names)
+    % Input: file_names is a list of file names (e.g., 'sp01a_w01_heed.mp3')
+    % Output: labels is an array of word labels (e.g., [1, 2, 3, ...])
+    
+    labels = zeros(length(file_names), 1); % Preallocate space for the labels
+    for i = 1:length(file_names)
+        % Use regex to get the word number after '_w' in the file name
+        tokens = regexp(file_names{i}, '_w(\d+)_', 'tokens');
+        if ~isempty(tokens) && ~isempty(tokens{1})
+            labels(i) = str2double(tokens{1}{1}); % Convert the label to a number
+        else
+            % Throw an error if the file name format is wrong
+            error('File name "%s" doesnt match the expected format (e.g., "sp01a_w01_heed.mp3").', file_names{i});
         end
     end
-    % Add entry and exit transitions
-    A(1, 2) = 1; % Entry to first state
-    A(num_states+1, num_states+2) = 1; % Final state to exit
 end
 
-% Commands to run
-% dev_features_file = 'dev_set_mfcc_features.mat'; % From Task 1
-% output_hmm_file = 'prototype_hmms.mat';
+% Function to create the transition matrix for the HMM
+function A = create_transition_matrix(num_states, self_prob, forward_prob)
+    % Input: num_states - number of states in the HMM
+    %        self_prob - probability of staying in the same state
+    %        forward_prob - probability of moving to the next state
+    % Output: A - the transition matrix for the HMM
+    
+    A = zeros(num_states + 2); % Add 2 for the entry and exit states
+    for i = 2:num_states+1
+        A(i, i) = self_prob; % Set self-loop probability
+        if i < num_states+1
+            A(i, i+1) = forward_prob; % Set forward probability
+        end
+    end
+    % Entry and exit states
+    A(1, 2) = 1; % Entry state connects to the first state
+    A(num_states+1, num_states+2) = 1; % Last state connects to the exit state
+end
+
+% Commands to run the function:
+% dev_features_file = 'dev_set_mfcc_features.mat'; % File containing MFCC features
+% output_hmm_file = 'prototype_hmms.mat'; % File where the HMMs will be saved
 % initialize_hmms(dev_features_file, output_hmm_file);
