@@ -26,6 +26,7 @@ The project was developed as part of a group assignment for the Speech and Audio
 - [@prismaticoder](https://github.com/prismaticoder)
 - [@SamWattsJ](https://github.com/SamWattsJ)
 - [@ZohraB612](https://github.com/ZohraB612)
+- [@munavarm74](https://github.com/munavarm74)
 
 ## Module
 
