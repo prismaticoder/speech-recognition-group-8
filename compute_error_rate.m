@@ -1,4 +1,4 @@
-function error_rate = compute_error_rate(dataset_dir, hmm_models)
+function [error_rate, word_labels] = compute_error_rate(dataset_dir, hmm_models)
 % Validate inputs
 if ~isfolder(dataset_dir)
     error('Invalid dataset directory path');
@@ -11,6 +11,10 @@ end
 % Initialize counters
 correctWords = 0;
 totalWords = 0;
+
+% creates 2 dimensional array for word labels of actual and predicted for
+% confusion matrix. first dimension is true, second is predicted
+word_labels = [];
 
 % Get all mp3 files in the directory
 audio_files = dir(fullfile(dataset_dir, '*.mp3'));
@@ -50,6 +54,9 @@ for i = 1:length(audio_files)
     if strcmp(wordWithMaxLikelihood, actual_word)
         correctWords = correctWords + 1;
     end
+
+    % append max likelihood word and actual word to word labels 
+    word_labels = [word_labels, [string(actual_word); string(wordWithMaxLikelihood)]];
 end
 
 % Calculate and return error rate (3 decimal places)
