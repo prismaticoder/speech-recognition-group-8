@@ -1,96 +1,81 @@
 % Step 2 (part 1): Initialize HMMs with word-specific parameters
 function initialize_hmms(dev_features_file, output_hmm_file)
-    % Load the MFCC features and file names from the dataset
-    load(dev_features_file, 'all_mfcc_features', 'file_names'); 
+    % This function initializes Hidden Markov Models (HMMs) for each unique word
+    % in the dataset. It uses word-specific parameters calculated from MFCC
+    % features to define the HMMs.
+    %
+    % Inputs:
+    % - dev_features_file: The .mat file containing MFCC features and file names.
+    % - output_hmm_file: The .mat file where the initialized HMMs will be saved.
 
-    % Get the word labels for each file by extracting them from the file names
-    word_labels = extract_word_labels(file_names);
+    % Load the extracted MFCC features and corresponding file names
+    load(dev_features_file, 'all_mfcc_features', 'file_names'); % https://www.mathworks.com/help/matlab/ref/load.html
 
-    % Parameters for the HMMs
-    num_states = 8; % Number of emitting states for each HMM
-    num_features = 13; % Number of MFCC features per frame
-    transition_prob = 0.8; % Probability of staying in the same state
+    % Get the word labels by parsing the file names
+    word_labels = extract_word_labels(file_names); 
+
+    % Define parameters for the HMM
+    num_states = 8; % Number of states excluding entry/exit states
+    num_features = 13; % MFCC features per frame
+    transition_prob = 0.8; % Probability of staying in the current state
     forward_prob = 0.2; % Probability of moving to the next state
 
-    % Number of unique words in the dataset
-    vocab_size = 11; % We know there are 11 words
-    hmms = cell(vocab_size, 1); % To store the HMM for each word
+    % Known vocabulary size (number of unique words in the dataset)
+    vocab_size = 11; % Assumes we know the dataset has 11 unique words
+    hmms = cell(vocab_size, 1); % Preallocate a cell array to store the HMMs
 
-    % Loop through all words and initialize an HMM for each one
+    % Loop through each unique word to initialize its HMM
     for word_idx = 1:vocab_size
-        % Collect all MFCC features for this specific word
-        word_features = vertcat(all_mfcc_features{word_labels == word_idx});
+        % Extract all MFCC features corresponding to this word
+        word_features = vertcat(all_mfcc_features{word_labels == word_idx}); % https://www.mathworks.com/help/matlab/ref/vertcat.html
 
-        % Extract the word name for the HMM
+        % Retrieve the word name for this HMM using one of its file names
         word_files = file_names(word_labels == word_idx);
-        word_name = extract_word_from_filename(word_files{1}); % Get the actual word name
+        word_name = extract_word_from_filename(word_files{1}); 
 
-        % Calculate the mean and variance for the features of this word
-        word_mean = mean(word_features, 1); % Mean across all frames
-        word_variance = max(var(word_features, 0, 1), 1e-4); % Variance with floor for stability
+        % Calculate the mean and variance of the word's MFCC features
+        word_mean = mean(word_features, 1); % https://www.mathworks.com/help/matlab/ref/mean.html
+        word_variance = max(var(word_features, 0, 1), 1e-4); % https://www.mathworks.com/help/matlab/ref/var.html
+        % Apply a floor value (1e-4) to avoid numerical issues with near-zero variance
 
-        % Create the 9x9 transition matrix
+        % Create a transition matrix for the HMM
         A_matrix = create_transition_matrix(num_states, transition_prob, forward_prob);
 
-        % Set up the HMM parameters using the HmmModel class
-        initial_prob = [1; zeros(num_states, 1)]; % Initial state distribution (9 states)
+        % Define the HMM parameters
+        initial_prob = [1; zeros(num_states, 1)]; % Initial probability (entry state is 1)
         hmm = HmmModel(word_name, A_matrix, ...
-               repmat(word_mean, num_states + 1, 1), ... % 9x13 mean matrix
-               repmat(sqrt(word_variance), num_states + 1, 1), ... % 9x13 variance matrix
+               repmat(word_mean, num_states + 1, 1), ... % Replicate mean for all states https://www.mathworks.com/help/matlab/ref/repmat.html
+               repmat(sqrt(word_variance), num_states + 1, 1), ... % Variance matrix
                initial_prob);
 
-        % Save the HMM into the cell array
+        % Store the HMM in the cell array
         hmms{word_idx} = hmm;
     end
 
-    % Save the HMMs to a file so we can use them later
-    save(output_hmm_file, 'hmms');
-    fprintf('Initialized HMMs saved to %s\n', output_hmm_file);
+    % Save the HMMs to a file for later use
+    save(output_hmm_file, 'hmms'); % https://www.mathworks.com/help/matlab/ref/save.html
+    fprintf('Initialized HMMs saved to %s\n', output_hmm_file); % https://www.mathworks.com/help/matlab/ref/fprintf.html
 end
 
-% Function to extract the word labels from the file names
+% Function to extract word labels from file names
 function labels = extract_word_labels(file_names)
-    labels = zeros(length(file_names), 1); % Preallocate space for the labels
+    % This function generates numeric labels for words based on file names.
+    %
+    % Inputs:
+    % - file_names: Cell array of file names.
+    %
+    % Outputs:
+    % - labels: Numeric labels corresponding to word indices in the dataset.
+
+    labels = zeros(length(file_names), 1); % Preallocate label array https://www.mathworks.com/help/matlab/ref/zeros.html
     for i = 1:length(file_names)
-        tokens = regexp(file_names{i}, '_w(\d+)_', 'tokens');
+        tokens = regexp(file_names{i}, '_w(\d+)_', 'tokens'); % https://www.mathworks.com/help/matlab/ref/regexp.html
         if ~isempty(tokens) && ~isempty(tokens{1})
-            labels(i) = str2double(tokens{1}{1}); % Convert the label to a number
+            labels(i) = str2double(tokens{1}{1}); % Convert label to numeric https://www.mathworks.com/help/matlab/ref/str2double.html
         else
-            error('File name "%s" doesn''t match the expected format.', file_names{i});
+            error('File name "%s" doesn''t match the expected format.', file_names{i}); % https://www.mathworks.com/help/matlab/ref/error.html
         end
     end
 end
 
-% Function to extract the word from the file name
-function word = extract_word_from_filename(file_name)
-    tokens = regexp(file_name, '_w\d+_(\w+)\.', 'tokens'); % Extract word after '_w<index>_'
-    if ~isempty(tokens) && ~isempty(tokens{1})
-        word = tokens{1}{1};
-    else
-        error('File name "%s" doesn''t match the expected format.', file_name);
-    end
-end
-
-% Function to create a 9x9 transition matrix
-function A = create_transition_matrix(num_states, self_prob, forward_prob)
-    % Add an entry and exit state to create a 9x9 matrix
-    A = zeros(num_states + 1);
-
-    % Fill in the transition probabilities
-    for i = 1:num_states
-        A(i, i) = self_prob; % Self-loop probability
-        if i < num_states
-            A(i, i + 1) = forward_prob; % Forward transition probability
-        else
-            A(i, i + 1) = forward_prob; % Last emitting state transitions to exit
-        end
-    end
-
-    % Ensure the exit state transitions only to itself
-    A(num_states + 1, num_states + 1) = 1; % Exit state self-loop
-end
-
-% Commands to run the function:
-% dev_features_filce = 'dev_set_mfcc_features.mat'; % File containing MFCC features
-% output_hmm_file = 'prototype_hmms.mat'; % File where the HMMs will be saved
-% initialize_hmms(dev_features_file, output_hmm_file);
+% Function to extract the word name from a file n

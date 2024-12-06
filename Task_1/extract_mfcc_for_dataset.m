@@ -1,135 +1,110 @@
 % Step 1
-% Before using rename 'EEEM030cw2-DevelopmentSet-2024' to 'DevSet'
+% Before starting, rename 'EEEM030cw2-DevelopmentSet-2024' to 'DevSet'
 function extract_mfcc_for_dataset(dataset_dir, output_file)
-    % This function is meant to extract MFCCs for all files 
-    % in our development set data directory and save the 
-    % results in a .mat file. 
-    % dataset_dir: Directory that contains the dev set audio files.
-    % output_file: Path to save the extracted MFCC features in a .mat file.
-    
-    % We get all the audio files from the directory
-    audio_files = dir(fullfile(dataset_dir, '*.mp3')); 
-    num_files = length(audio_files);
+    % This function processes all audio files in the dataset directory,
+    % extracts MFCC features, and saves them into a .mat file.
+    %
+    % Inputs:
+    % - dataset_dir: Folder containing audio files.
+    % - output_file: Name of the .mat file to save the results.
 
-    % Preallocate storage
-    all_mfcc_features = cell(num_files, 1); % Store MFCCs for each file
-    % Initialize structure to store all MFCCs by word
-    segmented_mfcc_features = struct();
-    file_names = cell(num_files, 1); % Store corresponding file names
+    % Get the list of all .mp3 files in the specified directory
+    audio_files = dir(fullfile(dataset_dir, '*.mp3')); % https://www.mathworks.com/help/matlab/ref/dir.html
+    num_files = length(audio_files); % https://www.mathworks.com/help/matlab/ref/length.html
 
-    % Process each file
+    % Preallocate storage for MFCC features and file names
+    all_mfcc_features = cell(num_files, 1); % https://www.mathworks.com/help/matlab/ref/cell.html
+    file_names = cell(num_files, 1); 
+
+    % Loop through each audio file
     for i = 1:num_files
-        file_path = fullfile(audio_files(i).folder, audio_files(i).name);
-        fprintf('Processing file: %s\n', file_path);
+        file_path = fullfile(audio_files(i).folder, audio_files(i).name); % https://www.mathworks.com/help/matlab/ref/fullfile.html
+        fprintf('Processing file: %s\n', file_path); % https://www.mathworks.com/help/matlab/ref/fprintf.html
 
-        % Extract MFCCs
         try
-            % Extract word from filename (assuming format like "word_*.mp3")
-            word = extract_word_from_filename(audio_files(i).name);
-
-            mfcc_features = extract_mfcc(file_path); % Call the helper function
-
-            % Initialize field for this word if it doesn't exist% Initialize field for this word if it doesn't exist
-            if ~isfield(segmented_mfcc_features, word)
-                segmented_mfcc_features.(word) = [];
-            end
-
-            % Concatenate MFCC features for this word
-            segmented_mfcc_features.(word) = [segmented_mfcc_features.(word); mfcc_features];
-            all_mfcc_features{i} = mfcc_features; % Store the MFCC features
-            file_names{i} = audio_files(i).name; % Store file name
+            % Extract MFCC features using the helper function
+            mfcc_features = extract_mfcc(file_path);
+            all_mfcc_features{i} = mfcc_features; % Save the features
+            file_names{i} = audio_files(i).name; % Save the file name
         catch ME
-            fprintf('Error processing file: %s\n', file_path); % Error message if file cannot be processed
+            % If something goes wrong, display the error message
+            fprintf('Error processing file: %s\n', file_path); % https://www.mathworks.com/help/matlab/ref/fprintf.html
             fprintf('%s\n', ME.message);
         end
     end
 
-    % Save results
-    save(output_file, 'all_mfcc_features', 'file_names', 'segmented_mfcc_features');
-    fprintf('All files have been processed and the results are saved to %s.\n', output_file);
+    % Combine all extracted MFCC frames for global statistics
+    all_frames = cell2mat(all_mfcc_features); % https://www.mathworks.com/help/matlab/ref/cell2mat.html
+    global_mean = mean(all_frames, 1); % https://www.mathworks.com/help/matlab/ref/mean.html
+    global_variance = var(all_frames, 0, 1); % https://www.mathworks.com/help/matlab/ref/var.html
+
+    % Save everything into a .mat file
+    save(output_file, 'all_mfcc_features', 'file_names', 'global_mean', 'global_variance'); % https://www.mathworks.com/help/matlab/ref/save.html
+    fprintf('Processing complete. Results saved to %s.\n', output_file); 
 end
 
 function mfcc_features = extract_mfcc(audio_file)
-    % Read the audio file
-    [signal, fs] = audioread(audio_file);
+    % This helper function calculates the MFCC features for a single audio file.
+    %
+    % Input:
+    % - audio_file: Path to the .mp3 file.
+    %
+    % Output:
+    % - mfcc_features: Matrix containing MFCC features for each frame.
 
-    % Parameters
-    frame_size = 0.03; % 30 ms
-    hop_size = 0.01;   % 10 ms
+    % Read the audio file into memory
+    [signal, fs] = audioread(audio_file); % https://www.mathworks.com/help/matlab/ref/audioread.html
+
+    % Set up parameters for frame segmentation and MFCC computation
+    frame_size = 0.03; % 30 milliseconds
+    hop_size = 0.01; % 10 milliseconds
     num_mel_filters = 26; % Number of Mel filters
-    num_mfcc_coefs = 13; % Number of MFCC coefficients
+    num_mfcc_coefs = 13; % Number of MFCC coefficients to keep
 
-    % Frame segmentation
-    frame_length = round(frame_size * fs);
+    % Frame segmentation: Calculate frame and hop lengths in samples
+    frame_length = round(frame_size * fs); % https://www.mathworks.com/help/matlab/ref/round.html
     hop_length = round(hop_size * fs);
-    signal_length = length(signal);
-    num_frames = floor((signal_length - frame_length) / hop_length) + 1;
+    signal_length = length(signal); % https://www.mathworks.com/help/matlab/ref/length.html
+    num_frames = floor((signal_length - frame_length) / hop_length) + 1; % https://www.mathworks.com/help/matlab/ref/floor.html
 
-    % Apply Hamming window
-    window = hamming(frame_length);
+    % Create a Hamming window to apply to each frame
+    window = hamming(frame_length); % https://www.mathworks.com/help/signal/ref/hamming.html
 
-    % Preallocate storage for MFCC features
-    mfcc_features = zeros(num_frames, num_mfcc_coefs); % Preallocate the array
+    % Preallocate space for the MFCC features
+    mfcc_features = zeros(num_frames, num_mfcc_coefs); % https://www.mathworks.com/help/matlab/ref/zeros.html
 
     for i = 1:num_frames
-        % Frame signal
+        % Define the start and end of the current frame
         frame_start = (i - 1) * hop_length + 1;
         frame_end = frame_start + frame_length - 1;
+
+        % Ensure we don't go beyond the signal's length
         if frame_end > signal_length
             break;
         end
+
+        % Extract the frame and apply the Hamming window
         frame = signal(frame_start:frame_end) .* window;
 
-        % FFT and Power Spectrum
-        fft_spectrum = abs(fft(frame, 512)).^2;
-        power_spectrum = fft_spectrum(1:257); % Keep all positive frequencies
-        power_spectrum = power_spectrum(:); % Ensure it's a column vector
+        % Compute the power spectrum using the FFT
+        fft_spectrum = abs(fft(frame, 512)).^2; % https://www.mathworks.com/help/matlab/ref/fft.html
+        power_spectrum = fft_spectrum(1:257); % Retain the positive frequencies
 
-        % Mel Filterbank
+        % Apply the Mel filterbank
         mel_filterbank = mel_filterbank_matrix(num_mel_filters, 512, fs);
-
-        % Multiply Mel filterbank with power spectrum
         mel_energies = mel_filterbank * power_spectrum;
 
-        % Log-Mel Energies
-        log_mel_energies = log(mel_energies + eps);
+        % Take the log of the Mel energies to reduce dynamic range
+        log_mel_energies = log(mel_energies + eps); % https://www.mathworks.com/help/matlab/ref/log.html
 
-        % Discrete Cosine Transform (DCT)
-        mfcc_frame = dct(log_mel_energies);
-        mfcc_frame = mfcc_frame(1:num_mfcc_coefs); % Retain first 'num_mfcc_coefs' coefficients
-
-        % Store the MFCC frame in the preallocated matrix
-        mfcc_features(i, :) = mfcc_frame';
+        % Perform the DCT to get MFCCs and keep only the first coefficients
+        mfcc_frame = dct(log_mel_energies); % https://www.mathworks.com/help/matlab/ref/dct.html
+        mfcc_features(i, :) = mfcc_frame(1:num_mfcc_coefs)';
     end
 end
 
 function mel_filterbank = mel_filterbank_matrix(num_filters, fft_size, fs)
-    % Mel scale filterbank
-    low_freq_mel = 0;
-    high_freq_mel = 2595 * log10(1 + (fs / 2) / 700);
-    mel_points = linspace(low_freq_mel, high_freq_mel, num_filters + 2);
-    hz_points = 700 * (10.^(mel_points / 2595) - 1);
-    bin = floor((fft_size + 1) * hz_points / fs);
-
-    % Ensure bin indices are valid
-    bin(bin < 1) = 1; % Replace any zero or negative values with 1
-    bin(bin > fft_size / 2 + 1) = floor(fft_size / 2 + 1); 
-
-    % Filterbank matrix
-    mel_filterbank = zeros(num_filters, floor(fft_size / 2 + 1));
-    for i = 1:num_filters
-        mel_filterbank(i, bin(i):bin(i+1)) = linspace(0, 1, bin(i+1) - bin(i) + 1);
-        mel_filterbank(i, bin(i+1):bin(i+2)) = linspace(1, 0, bin(i+2) - bin(i+1) + 1);
-    end
-end
-
-function word = extract_word_from_filename(filename)
-    % Extract word from filename format: sp01a_w03_head.mp3
-    parts = split(filename, '_');
-    word = extractBefore(parts{3}, '.mp3');
-end
-
-% Commands to run: 
-% dataset_dir = 'DevSet'; % Dataset directory
-% output_file = 'dev_set_mfcc_features.mat'; % .mat file to save results
-% extract_mfcc_for_dataset(dataset_dir, output_file);
+    % This function creates the Mel filterbank matrix for a given FFT size and sample rate.
+    %
+    % Inputs:
+    % - num_filters: Number of Mel filters
